@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sutd-trivia-bot
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Parameters:
+  BotToken:
+    Type: String
+    Description: Telegram API bot token
+
+Resources:
+  TelegramBotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: bot
+      Handler: app.lambda_handler
+      Events:
+        NewUpdate:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /
+            Method: post
+            RestApiId: !Ref TelegramWebhookAPI
+      Timeout: 15
+      Runtime: python3.8
+      Environment:
+        Variables:
+          BOT_TOKEN: !Ref BotToken
+          BUCKET_NAME: !Ref PhotosBucket
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+      Policies:
+        - RekognitionDetectOnlyPolicy: {}
+        - S3CrudPolicy:
+            BucketName: !Ref PhotosBucket
+  TelegramWebhookAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${AWS::StackName}-TelegramWebhookAPI"
+      StageName: prod
+      EndpointConfiguration:
+        Type: REGIONAL
+  PhotosBucket:
+    Type: AWS::S3::Bucket
+Outputs:
+  TelegramWebhookURL:
+    Description: Set the bot's API webhook to this location
+    Value: !Sub "https://${TelegramWebhookAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
